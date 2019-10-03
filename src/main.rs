@@ -5,7 +5,7 @@ use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use tokio::net::{TcpListener, TcpStream};
-use tokio_io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -16,17 +16,21 @@ async fn main() -> Result<(), Error> {
     let to_address: SocketAddr = opt.to_address.parse()
         .context(InvalidAddress)?;
 
+    // bind listener now; target service is connected when
+    // new connection is received on listener.
     let mut from_listener = TcpListener::bind(&from_address)
         .await
         .expect("could not bind to tcp socket");
 
+    // loop over new connections
     loop {
         let (mut from_socket, _) = from_listener.accept()
             .await
             .context(TcpSocket)?;
 
-        // for each socket, echo for now
+        // when new connection received, spawn a new task
         tokio::spawn(async move {
+            // in this new task, connect to target service
             let mut to_socket = TcpStream::connect(to_address)
                 .await
                 .expect("Failed to connect to target");
@@ -34,6 +38,7 @@ async fn main() -> Result<(), Error> {
 
             let mut buf = [0u8; 1024];
 
+            // then proxy the bytes through
             loop {
                 // first half, go from -> to
                 let n = match from_socket.read(&mut buf).await {
