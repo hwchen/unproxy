@@ -1,8 +1,9 @@
+use futures_util::try_future::try_join;
 use snafu::{Snafu, ResultExt};
 use std::net::SocketAddr;
 use structopt::StructOpt;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncReadExt;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -24,6 +25,7 @@ async fn main() -> Result<(), Error> {
         let (mut from_socket, _) = from_listener.accept()
             .await
             .context(TcpSocket)?;
+        println!("Connection accepted on listening socket");
 
         // when new connection received, spawn a new task
         tokio::spawn(async move {
@@ -32,41 +34,13 @@ async fn main() -> Result<(), Error> {
                 .await
                 .expect("Failed to connect to target");
             let (mut to_socket_read, mut to_socket_write) = to_socket.split();
+            let (mut from_socket_read, mut from_socket_write) = from_socket.split();
 
-            let mut buf = [0u8; 1024];
-
-            // then proxy the bytes through
-            loop {
-                // first half, go from -> to
-                let n = match from_socket.read(&mut buf).await {
-                    Ok(n) if n == 0 => return,
-                    Ok(n) => n,
-                    Err(err) => {
-                        eprintln!("Failed to read from socket: {}", err);
-                        return;
-                    },
-                };
-
-                if let Err(err) = to_socket_write.write_all(&buf[0..n]).await {
-                    eprintln!("Failed to write to socket: {}", err);
-                    return;
-                }
-
-                // second half, go to -> from
-                let n = match to_socket_read.read(&mut buf).await {
-                    Ok(n) if n == 0 => return,
-                    Ok(n) => n,
-                    Err(err) => {
-                        eprintln!("Failed to read from socket: {}", err);
-                        return;
-                    },
-                };
-
-                if let Err(err) = from_socket.write_all(&buf[0..n]).await {
-                    eprintln!("Failed to write to socket: {}", err);
-                    return;
-                }
-            }
+            try_join(
+                from_socket_read.copy(&mut to_socket_write),
+                to_socket_read.copy(&mut from_socket_write),
+            ).await
+            .expect("Unable to read or write to sockets");
         });
     }
 }
