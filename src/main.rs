@@ -1,8 +1,5 @@
-use hyper::{Client, Request, Uri};
-use hyper_tls::HttpsConnector;
-use snafu::{Snafu, ResultExt, OptionExt};
+use snafu::{Snafu, ResultExt};
 use std::net::SocketAddr;
-use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
