@@ -35,13 +35,13 @@ async fn main() -> Result<(), Error> {
             let (mut to_socket_read, mut to_socket_write) = to_socket.split();
             let (mut from_socket_read, mut from_socket_write) = from_socket.split();
 
-            try_join(
+            let _ = try_join(
                 copy(&mut from_socket_read, &mut to_socket_write),
                 copy(&mut to_socket_read, &mut from_socket_write),
             )
             .map_ok(|(b_tx, b_rx)| println!("-> {} bytes\n<- {} bytes", b_tx, b_rx))
-            .await
-            .expect("Unable to read or write to sockets");
+            .map_err(|err| println!("Unable to read or write to sockets: {}", err))
+            .await;
         });
     }
 }
