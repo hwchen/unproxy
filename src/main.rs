@@ -29,9 +29,13 @@ async fn main() -> Result<(), Error> {
         // when new connection received, spawn a new task
         tokio::spawn(async move {
             // in this new task, connect to target service
-            let mut to_socket = TcpStream::connect(to_address)
-                .await
-                .expect("Failed to connect to target");
+            let mut to_socket = match TcpStream::connect(to_address).await {
+                Ok(s) => s,
+                Err(err) => {
+                    println!("Could not connect to target socket: {}", err);
+                    return;
+                },
+            };
             let (mut to_socket_read, mut to_socket_write) = to_socket.split();
             let (mut from_socket_read, mut from_socket_write) = from_socket.split();
 
