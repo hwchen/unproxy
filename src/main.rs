@@ -1,4 +1,4 @@
-use futures_util::try_future::try_join;
+use futures_util::try_future::{try_join, TryFutureExt};
 use snafu::{Snafu, ResultExt};
 use std::net::SocketAddr;
 use structopt::StructOpt;
@@ -36,10 +36,22 @@ async fn main() -> Result<(), Error> {
             let (mut to_socket_read, mut to_socket_write) = to_socket.split();
             let (mut from_socket_read, mut from_socket_write) = from_socket.split();
 
+            // TODO shutdown of to_socket never happens because it never receives a shutdown
+            // signal. Do I need to write a new wrapper to handle that? I don't know that
+            // this basic futures mechanism can do it, since it has to happen after
+            // the to_socket is finished responding.
             try_join(
-                from_socket_read.copy(&mut to_socket_write),
-                to_socket_read.copy(&mut from_socket_write),
-            ).await
+                from_socket_read.copy(&mut to_socket_write)
+                    .map_ok(|b| {
+                        println!("from socket closed, {} bytes transferred", b);
+                    }),
+                to_socket_read.copy(&mut from_socket_write)
+                    .map_ok(|b| {
+                        println!("to socket closed, {} bytes transferred", b);
+                    }),
+            )
+            .map_ok(|_| println!("transfer completed, both sockets closed"))
+            .await
             .expect("Unable to read or write to sockets");
         });
     }
