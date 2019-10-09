@@ -64,20 +64,20 @@ async fn copy<R, W>(read_socket: &mut R, write_socket: &mut W) -> Result<u64, Er
             Ok(n) if n == 0 => break,
             Ok(n) => n,
             Err(err) => {
-                return Err(err).context(Io)?;
+                return Err(err).context(TcpIo)?;
             }
         };
 
         // copy to target sid
         write_socket.write_all(&buf[0..n]).await
-            .context(Io)?;
+            .context(TcpIo)?;
 
         bytes_read += n as u64;
     }
 
     // Now that the copy is done, send the shutdown signal explicitly
     write_socket.shutdown().await
-        .context(Io)?;
+        .context(TcpIo)?;
 
     Ok(bytes_read)
 }
@@ -102,6 +102,6 @@ pub enum Error {
     InvalidAddress { source: std::net::AddrParseError },
     #[snafu(display("Tcp Socket Error: {}", source))]
     TcpSocket { source: tokio::io::Error },
-    #[snafu(display("IO Error: {}", source))]
-    Io { source: std::io::Error },
+    #[snafu(display("Tcp Io Error: {}", source))]
+    TcpIo { source: std::io::Error },
 }
