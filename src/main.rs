@@ -25,7 +25,6 @@ async fn main() -> Result<(), Error> {
         let (mut from_socket, _) = from_listener.accept()
             .await
             .context(TcpSocket)?;
-        println!("Connection accepted on listening socket");
 
         // when new connection received, spawn a new task
         tokio::spawn(async move {
@@ -37,16 +36,10 @@ async fn main() -> Result<(), Error> {
             let (mut from_socket_read, mut from_socket_write) = from_socket.split();
 
             try_join(
-                copy(&mut from_socket_read, &mut to_socket_write)
-                    .map_ok(|b| {
-                        println!("from socket closed, {} bytes transferred", b);
-                    }),
-                copy(&mut to_socket_read, &mut from_socket_write)
-                    .map_ok(|b| {
-                        println!("to socket closed, {} bytes transferred", b);
-                    }),
+                copy(&mut from_socket_read, &mut to_socket_write),
+                copy(&mut to_socket_read, &mut from_socket_write),
             )
-            .map_ok(|_| println!("transfer completed, both sockets closed"))
+            .map_ok(|(b_tx, b_rx)| println!("-> {} bytes\n<- {} bytes", b_tx, b_rx))
             .await
             .expect("Unable to read or write to sockets");
         });
