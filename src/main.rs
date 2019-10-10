@@ -1,5 +1,4 @@
 use futures_util::try_future::{try_join, TryFutureExt};
-use snafu::{Snafu, ResultExt};
 use std::net::SocketAddr;
 use structopt::StructOpt;
 use tokio::net::{TcpListener, TcpStream};
@@ -10,9 +9,9 @@ async fn main() -> Result<(), Error> {
     let opt = CliOpt::from_args();
 
     let from_address: SocketAddr = opt.from_address.parse()
-        .context(InvalidAddress)?;
+        .map_err(|err| Error::InvalidAddress(err))?;
     let to_address: SocketAddr = opt.to_address.parse()
-        .context(InvalidAddress)?;
+        .map_err(|err| Error::InvalidAddress(err))?;
 
     // bind listener now; target service is connected when
     // new connection is received on listener.
@@ -24,7 +23,7 @@ async fn main() -> Result<(), Error> {
     loop {
         let (mut from_socket, _) = from_listener.accept()
             .await
-            .context(TcpSocket)?;
+            .map_err(|err| Error::TcpSocket(err))?;
 
         // when new connection received, spawn a new task
         tokio::spawn(async move {
@@ -68,20 +67,20 @@ async fn copy<R, W>(read_socket: &mut R, write_socket: &mut W) -> Result<u64, Er
             Ok(n) if n == 0 => break,
             Ok(n) => n,
             Err(err) => {
-                return Err(err).context(TcpIo)?;
+                return Err(err).map_err(|err| Error::TcpIo(err))?;
             }
         };
 
         // copy to target sid
         write_socket.write_all(&buf[0..n]).await
-            .context(TcpIo)?;
+            .map_err(|err| Error::TcpIo(err))?;
 
         bytes_read += n as u64;
     }
 
     // Now that the copy is done, send the shutdown signal explicitly
     write_socket.shutdown().await
-        .context(TcpIo)?;
+        .map_err(|err| Error::TcpIo(err))?;
 
     Ok(bytes_read)
 }
@@ -100,12 +99,12 @@ struct CliOpt {
 }
 
 
-#[derive(Debug, Snafu)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[snafu(display("Invalid Address: {}", source))]
-    InvalidAddress { source: std::net::AddrParseError },
-    #[snafu(display("Tcp Socket Error: {}", source))]
-    TcpSocket { source: tokio::io::Error },
-    #[snafu(display("Tcp Io Error: {}", source))]
-    TcpIo { source: std::io::Error },
+    #[error("Invalid Address: {0}")]
+    InvalidAddress(#[source] std::net::AddrParseError),
+    #[error("Tcp Socket Error: {0}")]
+    TcpSocket(#[source] tokio::io::Error),
+    #[error("Tcp Io Error: {0}")]
+    TcpIo (#[source] std::io::Error),
 }
