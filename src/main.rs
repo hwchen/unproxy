@@ -9,9 +9,9 @@ async fn main() -> Result<(), Error> {
     let opt = CliOpt::from_args();
 
     let from_address: SocketAddr = opt.from_address.parse()
-        .map_err(|err| Error::InvalidAddress(err))?;
+        .map_err(Error::InvalidAddress)?;
     let to_address: SocketAddr = opt.to_address.parse()
-        .map_err(|err| Error::InvalidAddress(err))?;
+        .map_err(Error::InvalidAddress)?;
 
     // bind listener now; target service is connected when
     // new connection is received on listener.
@@ -23,7 +23,7 @@ async fn main() -> Result<(), Error> {
     loop {
         let (mut from_socket, _) = from_listener.accept()
             .await
-            .map_err(|err| Error::TcpSocket(err))?;
+            .map_err(Error::TcpSocket)?;
 
         // when new connection received, spawn a new task
         tokio::spawn(async move {
@@ -67,20 +67,20 @@ async fn copy<R, W>(read_socket: &mut R, write_socket: &mut W) -> Result<u64, Er
             Ok(n) if n == 0 => break,
             Ok(n) => n,
             Err(err) => {
-                return Err(err).map_err(|err| Error::TcpIo(err))?;
+                return Err(err).map_err(Error::TcpIo)?;
             }
         };
 
-        // copy to target sid
+        // copy to target side
         write_socket.write_all(&buf[0..n]).await
-            .map_err(|err| Error::TcpIo(err))?;
+            .map_err(Error::TcpIo)?;
 
         bytes_read += n as u64;
     }
 
     // Now that the copy is done, send the shutdown signal explicitly
     write_socket.shutdown().await
-        .map_err(|err| Error::TcpIo(err))?;
+        .map_err(Error::TcpIo)?;
 
     Ok(bytes_read)
 }
