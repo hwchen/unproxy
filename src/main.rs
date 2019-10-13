@@ -8,10 +8,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 async fn main() -> Result<(), Error> {
     let opt = CliOpt::from_args();
 
-    let from_address: SocketAddr = opt.from_address.parse()
-        .map_err(Error::InvalidAddress)?;
-    let to_address: SocketAddr = opt.to_address.parse()
-        .map_err(Error::InvalidAddress)?;
+    let from_address: SocketAddr = opt.from_address.parse()?;
+    let to_address: SocketAddr = opt.to_address.parse()?;
 
     // bind listener now; target service is connected when
     // new connection is received on listener.
@@ -22,8 +20,7 @@ async fn main() -> Result<(), Error> {
     // loop over new connections
     loop {
         let (mut from_socket, _) = from_listener.accept()
-            .await
-            .map_err(Error::TcpSocket)?;
+            .await?;
 
         // when new connection received, spawn a new task
         tokio::spawn(async move {
@@ -67,20 +64,18 @@ async fn copy<R, W>(read_socket: &mut R, write_socket: &mut W) -> Result<u64, Er
             Ok(n) if n == 0 => break,
             Ok(n) => n,
             Err(err) => {
-                return Err(err).map_err(Error::TcpIo)?;
+                return Err(err)?;
             }
         };
 
         // copy to target side
-        write_socket.write_all(&buf[0..n]).await
-            .map_err(Error::TcpIo)?;
+        write_socket.write_all(&buf[0..n]).await?;
 
         bytes_read += n as u64;
     }
 
     // Now that the copy is done, send the shutdown signal explicitly
-    write_socket.shutdown().await
-        .map_err(Error::TcpIo)?;
+    write_socket.shutdown().await?;
 
     Ok(bytes_read)
 }
@@ -102,9 +97,7 @@ struct CliOpt {
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Invalid Address: {0}")]
-    InvalidAddress(#[source] std::net::AddrParseError),
-    #[error("Tcp Socket Error: {0}")]
-    TcpSocket(#[source] tokio::io::Error),
+    InvalidAddress(#[from] std::net::AddrParseError),
     #[error("Tcp Io Error: {0}")]
-    TcpIo (#[source] std::io::Error),
+    TcpIo (#[from] std::io::Error),
 }
