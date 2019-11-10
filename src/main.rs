@@ -1,4 +1,4 @@
-use futures_util::try_future::{try_join, TryFutureExt};
+use futures_util::future::{try_join, TryFutureExt};
 use std::net::SocketAddr;
 use structopt::StructOpt;
 use tokio::net::{TcpListener, TcpStream};
