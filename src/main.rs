@@ -1,3 +1,4 @@
+use anyhow::Error;
 use futures_util::future::{try_join, TryFutureExt};
 use std::net::SocketAddr;
 use structopt::StructOpt;
@@ -94,10 +95,3 @@ struct CliOpt {
 }
 
 
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("Invalid Address: {0}")]
-    InvalidAddress(#[from] std::net::AddrParseError),
-    #[error("Tcp Io Error: {0}")]
-    TcpIo (#[from] std::io::Error),
-}
