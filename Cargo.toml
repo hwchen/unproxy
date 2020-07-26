@@ -8,8 +8,9 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0"
+async-executor = "0.1.2"
+async-io = "0.1.5"
+futures-lite = "0.1.9"
 futures-util= "0.3.0"
-hyper = "0.13.0"
-hyper-tls = "0.4.0"
 structopt = "0.2.14"
-tokio = { version = "0.2.0", features = ["macros"] }
+async-dup = "1.2.1"
